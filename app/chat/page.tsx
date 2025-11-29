@@ -19,32 +19,31 @@ export default function ChatPage() {
   }, [])
 
   async function fetchMessages() {
-    const { data: messagesData, error } = await supabase
+    const { data, error } = await supabase
       .from('messages')
       .select('*')
       .order('created_at', { ascending: true })
 
     if (error) {
-      console.error('Error fetching messages:', error)
+      console.error(error)
       return
     }
 
-    setMessages(messagesData || [])
+    setMessages(data || [])
   }
 
   async function sendMessage(e: React.FormEvent) {
     e.preventDefault()
     if (!newMessage) return
 
-    const { data, error } = await supabase.from('messages').insert([
-      {
-        content: newMessage,
-        user_id: (await supabase.auth.getUser()).data.user?.id || 'anonymous',
-      },
-    ])
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
 
+    const { error } = await supabase.from('messages').insert([
+      { content: newMessage, user_id: user.id }
+    ])
     if (error) {
-      console.error('Error sending message:', error)
+      console.error(error)
       return
     }
 
@@ -56,10 +55,8 @@ export default function ChatPage() {
     <div>
       <h1>Group Chat</h1>
       <ul>
-        {messages.map((msg) => (
-          <li key={msg.id}>
-            {msg.user_id}: {msg.content}
-          </li>
+        {messages.map(msg => (
+          <li key={msg.id}>{msg.user_id}: {msg.content}</li>
         ))}
       </ul>
       <form onSubmit={sendMessage}>

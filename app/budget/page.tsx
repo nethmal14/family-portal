@@ -18,24 +18,20 @@ export default function BudgetPage() {
   }, [])
 
   async function fetchBudget() {
-    // v2: get user
-    const { data, error: userError } = await supabase.auth.getUser()
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError) {
-      console.error('Error fetching user:', userError)
+      console.error(userError)
       return
     }
-
-    const user = data.user
     if (!user) return
 
-    // fetch user's budget
     const { data: budgetData, error: budgetError } = await supabase
       .from('budgets')
       .select('*')
       .eq('user_id', user.id)
 
     if (budgetError) {
-      console.error('Error fetching budget:', budgetError)
+      console.error(budgetError)
       return
     }
 
