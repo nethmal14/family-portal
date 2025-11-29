@@ -1,63 +1,75 @@
-"use client"
+'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
-import Layout from '../../components/Layout'
+
+interface Message {
+  id: number
+  user_id: string
+  content: string
+  created_at: string
+}
 
 export default function ChatPage() {
-  const [messages, setMessages] = useState([])
+  const [messages, setMessages] = useState<Message[]>([])
   const [newMessage, setNewMessage] = useState('')
-  const [username, setUsername] = useState('')
 
   useEffect(() => {
     fetchMessages()
-    const interval = setInterval(fetchMessages, 3000) // refresh every 3 sec
-    return () => clearInterval(interval)
   }, [])
 
   async function fetchMessages() {
-    const { data } = await supabase
+    const { data: messagesData, error } = await supabase
       .from('messages')
       .select('*')
       .order('created_at', { ascending: true })
-    setMessages(data || [])
+
+    if (error) {
+      console.error('Error fetching messages:', error)
+      return
+    }
+
+    setMessages(messagesData || [])
   }
 
-  async function sendMessage(e) {
+  async function sendMessage(e: React.FormEvent) {
     e.preventDefault()
-    if (!newMessage || !username) return
-    await supabase.from('messages').insert([{ username, body: newMessage }])
+    if (!newMessage) return
+
+    const { data, error } = await supabase.from('messages').insert([
+      {
+        content: newMessage,
+        user_id: (await supabase.auth.getUser()).data.user?.id || 'anonymous',
+      },
+    ])
+
+    if (error) {
+      console.error('Error sending message:', error)
+      return
+    }
+
     setNewMessage('')
     fetchMessages()
   }
 
   return (
-    <Layout>
-      <h2>Group Chat</h2>
-
-      <form onSubmit={sendMessage}>
-        <input
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          placeholder="Your name"
-          required
-        />
-        <input
-          value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
-          placeholder="Message"
-          required
-        />
-        <button type="submit">Send</button>
-      </form>
-
+    <div>
+      <h1>Group Chat</h1>
       <ul>
         {messages.map((msg) => (
           <li key={msg.id}>
-            <strong>{msg.username}:</strong> {msg.body}
+            {msg.user_id}: {msg.content}
           </li>
         ))}
       </ul>
-    </Layout>
+      <form onSubmit={sendMessage}>
+        <input
+          type="text"
+          value={newMessage}
+          onChange={(e) => setNewMessage(e.target.value)}
+        />
+        <button type="submit">Send</button>
+      </form>
+    </div>
   )
 }
